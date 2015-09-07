@@ -1,38 +1,77 @@
 #!/usr/bin/env bash
 
+# Add a menu entry to the cache file
 add_to_cache(){
+
+	# First parameter is the .desktop file
 	application="$1"
 
+	# Get the names and commands from the .desktop file
 	names=$(sed -n "s/^Name=\(.*\)$/\1/p" "$application")
 	executables=$(sed -n "s/^Exec=\(.*\)$/\1/p" "$application")
 
+	# If there are no names or executables, return
 	if [ -n "$names" ] && [ -n "$executables" ]; then
+
+		# Some .desktop files have multiple names and commands because they
+		#  have multiple actions in xdg menus
+		# We assume the first name and command are the right ones
 		name=$(echo "$names" | sed "1!d")
 		executable=$(echo "$executables" | sed "1!d")
 
-		if [ -n "$name" ] && [ -n "$executable" ]; then
-			echo -e "$name:$executable" >> "$cache_file"
-		fi
+		# Add them to the cache file with a colon as seperator
+		echo -e "$name:$executable" >> "$cache_file"
 	fi
 }
 
+# These are the locaions to search for .desktop files
 usrlocations=$(echo {/usr,/usr/local,$HOME/.local,$HOME/.local/usr,$HOME/.local/usr/local}/share/applications)
+
+# All the desktop files the find-command found
 desktop_files=$(find $usrlocations -name "*.desktop" 2> /dev/null)
+
+# Checksum the filenames
 checksum=$(echo $desktop_files | sha1sum)
+
+# The cache file location
 cache_file="$HOME/.cache/dmenu_app"
+
+# Create a new cachefile if there is no cachefile or the checksum on the top line
+#  does not match the checksum of the filenames
 if [ ! -f "$cache_file" ] || [ "$(head -n1 "$cache_file")" != "$checksum" ]; then
 	echo "Updating cache file"
+
+	# Add the checksup to the top line of the cache file.  This we use to check
+	# if the .desktopfiles are updated since the cache file was last created.
 	echo "$checksum" > "$cache_file"
+
+	# Add all desktop entries to the cache file
 	while read application; do
+
+		# Forking the add_to_cache process, halves the time to add all entries
+		#  to the cache file in my case
 		add_to_cache "$application" &
 	done < <(echo "$desktop_files")
+
+	# Wait until all entries are in the cache file
 	wait
 fi
 
+# Pipe all the destop entry names to dmenu in alphabetical order
 choice=$(cat $cache_file | tail -n +2 | cut -d: -f1 | sort -h | dmenu "$@")
+
+# If nothing is returned from dmenu, do nothing
 if [ -n "$choice" ]; then
+
+	# Get the respective command from the cache file
 	command=$(sed -n "s/^$choice:\(.*\)$/\1/p" "$cache_file")
+
+	# If the command does not exists, do nothing
 	if [ -n "$command" ]; then
+
+		# Execute the command
 		echo "$command" | sh
 	fi
 fi
+
+# vim: set ts=8 sw=8 tw=0 noet :
