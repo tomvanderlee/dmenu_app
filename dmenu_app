@@ -29,7 +29,7 @@ if [ ! -f "$cache_file" ] || [ "$(head -n1 "$cache_file")" != "$checksum" ]; the
 	wait
 fi
 
-choice=$(cat $cache_file | tail -n +2 | cut -d: -f1 | sort -h | dmenu $@)
+choice=$(cat $cache_file | tail -n +2 | cut -d: -f1 | sort -h | dmenu "$@")
 if [ -n "$choice" ]; then
 	command=$(sed -n "s/^$choice:\(.*\)$/\1/p" "$cache_file")
 	if [ -n "$command" ]; then

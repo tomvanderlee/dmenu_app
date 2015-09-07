@@ -1,0 +1,31 @@
+#!/bin/sh
+
+for arg in $@; do
+	case $arg in
+	--prefix=*)
+		destdir=$(echo $arg | cut -d= -f2-)
+		;;
+	*)
+		;;
+	esac
+done
+
+if [ -z "$destdir" ]; then
+	destdir="/usr"
+fi
+
+cat <<MAKEFILE > Makefile
+# Generated on $(date) by $(whoami)@$(hostname)
+
+DESTDIR = $destdir
+
+install:
+	@mkdir -vp "\$(DESTDIR)/bin/"
+	@install -vm 755 dmenu_app "\$(DESTDIR)/bin/"
+
+uninstall:
+	@-rm -fv -- '\$(DESTDIR)/bin/dmenu_app'
+
+.PHONY: install uninstall
+MAKEFILE
+# vim: set ts=8 sw=8 tw=0 noet :
