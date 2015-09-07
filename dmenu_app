@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+add_to_cache(){
+	application="$1"
+
+	names=$(sed -n "s/^Name=\(.*\)$/\1/p" "$application")
+	executables=$(sed -n "s/^Exec=\(.*\)$/\1/p" "$application")
+
+	if [ -n "$names" ] && [ -n "$executables" ]; then
+		name=$(echo "$names" | sed "1!d")
+		executable=$(echo "$executables" | sed "1!d")
+
+		if [ -n "$name" ] && [ -n "$executable" ]; then
+			echo -e "$name:$executable" >> "$cache_file"
+		fi
+	fi
+}
+
+usrlocations=$(echo {/usr,/usr/local,$HOME/.local,$HOME/.local/usr,$HOME/.local/usr/local}/share/applications)
+desktop_files=$(find $usrlocations -name "*.desktop" 2> /dev/null)
+checksum=$(echo $desktop_files | sha1sum)
+cache_file="$HOME/.cache/dmenu_app"
+if [ ! -f "$cache_file" ] || [ "$(head -n1 "$cache_file")" != "$checksum" ]; then
+	echo "Updating cache file"
+	echo "$checksum" > "$cache_file"
+	while read application; do
+		add_to_cache "$application" &
+	done < <(echo "$desktop_files")
+	wait
+fi
+
+choice=$(cat $cache_file | tail -n +2 | cut -d: -f1 | sort -h | dmenu $@)
+if [ -n "$choice" ]; then
+	command=$(sed -n "s/^$choice:\(.*\)$/\1/p" "$cache_file")
+	if [ -n "$command" ]; then
+		echo "$command" | sh
+	fi
+fi
